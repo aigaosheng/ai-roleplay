@@ -26,7 +26,7 @@ from gemma import GemmaLocal, GemmaChatLocal
 # ChatOpenAI = GemmaChatLocal(model_name = model_name, hf_access_token = "")
 
 
-class AiAgent:
+class CAMELAgent:
     def __init__(
         self,
         system_message: SystemMessage,
@@ -58,13 +58,13 @@ class AiAgent:
 
         return output_message
 
-assistant_role_name = "Customer"
-user_role_name = "Sale"
-task = f"Simulate the pitch training session in the insurance company to improve {user_role_name}'s pitch skill to sell insurance product to {assistant_role_name}."
+assistant_role_name = "Accountant"
+user_role_name = "Entrepreneur"
+task = "Preparing and filing tax returns."
 word_limit = 100  # word limit for task brainstorming
 
 if ENABLE_UI:
-    st.title("Langchain-Gemma Agent")
+    st.title("CAMEL-Langchain-VertexAI Agent")
     st.sidebar.header("Input Settings")
 
     assistant_role_name = st.sidebar.text_input("Assistant Role Name", f"{assistant_role_name}")
@@ -75,11 +75,10 @@ if ENABLE_UI:
 
 # Step-1: Task define agent to generate task description
 task_specifier_sys_msg = SystemMessage(content="You can make a task more specific.")
-task_specify_agent = AiAgent(task_specifier_sys_msg, GemmaChatLocal(model_name = model_name, hf_access_token = "",temperature=1.0, allow_reuse = True))
+task_specify_agent = CAMELAgent(task_specifier_sys_msg, GemmaChatLocal(model_name = model_name, hf_access_token = "",temperature=1.0, allow_reuse = True))
 
 task_specifier_prompt = (
-    """Here is a task that {assistant_role_name} will help {user_role_name} to complete the task: {task}.
-The training sessision starts with {assistant_role_name} to enquiry products sold by {user_role_name}. 
+    """Here is a task that {assistant_role_name} will help {user_role_name} to complete: {task}.
 Please make it more specific. Be creative and imaginative.
 Please reply with the specified task in {word_limit} words or less. Do not add anything else."""
 )
@@ -93,32 +92,51 @@ specified_task = specified_task_msg.content
 
 #Step-2: Define user/assistant agent
 assistant_inception_prompt = (
-    """Never forget you are a {assistant_role_name} and I am a {user_role_name}. Never flip roles! 
+    """Never forget you are a {assistant_role_name} and I am a {user_role_name}. Never flip roles! Never instruct me!
 We share a common interest in collaborating to successfully complete a task.
 You must help me to complete the task.
 Here is the task: {task}. Never forget our task!
-I must rightly address your question and my needs to complete the task.
+I must instruct you based on your expertise and my needs to complete the task.
 
-You must simulate the real insurance customer and enquiry me one question.
+I must give you one instruction at a time.
+You must write a specific solution that appropriately completes the requested instruction.
+You must decline my instruction honestly if you cannot perform the instruction due to physical, moral, legal reasons or your capability and explain the reasons.
+Do not add anything else other than your solution to my instruction.
+You are never supposed to ask me any questions you only answer questions.
+You are never supposed to reply with a flake solution. Explain your solutions.
+Your solution must be declarative sentences and simple present tense.
 Unless I say the task is completed, you should always start with:
 
-Question: <YOUR_QUESTION>
+Solution: <YOUR_SOLUTION>
 
-<YOUR_QUESTION> should be specific on the insurance product and concerns on the product.
-Always end <YOUR_QUESTION> with: Next request."""
-
+<YOUR_SOLUTION> should be specific and provide preferable implementations and examples for task-solving.
+Always end <YOUR_SOLUTION> with: Next request."""
 )
 
 user_inception_prompt = (
-    """Never forget you are {user_role_name} and I am a {assistant_role_name}. Never flip roles! You will always question me.
+    """Never forget you are a {user_role_name} and I am a {assistant_role_name}. Never flip roles! You will always instruct me.
 We share a common interest in collaborating to successfully complete a task.
 I must help you to complete the task.
 Here is the task: {task}. Never forget our task!
-You must ask me on the insurance product.
+You must instruct me based on my expertise and your needs to complete the task ONLY in the following two ways:
 
-You must ask me one question at a time.
-I must write a response that appropriately completes the requested question.
+1. Instruct with a necessary input:
+Instruction: <YOUR_INSTRUCTION>
+Input: <YOUR_INPUT>
 
+2. Instruct without any input:
+Instruction: <YOUR_INSTRUCTION>
+Input: None
+
+The "Instruction" describes a task or question. The paired "Input" provides further context or information for the requested "Instruction".
+
+You must give me one instruction at a time.
+I must write a response that appropriately completes the requested instruction.
+I must decline your instruction honestly if I cannot perform the instruction due to physical, moral, legal reasons or my capability and explain the reasons.
+You should instruct me not ask me questions.
+Now you must start to instruct me using the two ways described above.
+Do not add anything else other than your instruction and the optional corresponding input!
+Keep giving me instructions and necessary inputs until you think the task is completed.
 When the task is completed, you must only reply with a single word <CAMEL_TASK_DONE>.
 Never say <CAMEL_TASK_DONE> unless my responses have solved your task."""
 )
@@ -138,8 +156,8 @@ def get_sys_msgs(assistant_role_name: str, user_role_name: str, task: str):
 
 # Create AI assistant agent and AI user agent from obtained system messages
 assistant_sys_msg, user_sys_msg = get_sys_msgs(assistant_role_name, user_role_name, specified_task)
-assistant_agent = AiAgent(assistant_sys_msg, GemmaChatLocal(model_name = model_name, hf_access_token = "",temperature=0.2, allow_reuse = True))
-user_agent = AiAgent(user_sys_msg,  GemmaChatLocal(model_name = model_name, hf_access_token = "",temperature=0.25, allow_reuse = True))
+assistant_agent = CAMELAgent(assistant_sys_msg, GemmaChatLocal(model_name = model_name, hf_access_token = "",temperature=0.2, allow_reuse = True))
+user_agent = CAMELAgent(user_sys_msg,  GemmaChatLocal(model_name = model_name, hf_access_token = "",temperature=0.25, allow_reuse = True))
 
 # Reset agents
 assistant_agent.reset()
@@ -148,8 +166,8 @@ user_agent.reset()
 # Initialize chats
 assistant_msg = HumanMessage(
     content=(f"{user_sys_msg.content}. "
-             "Now start to give me enquiries one by one. "
-            ))
+             "Now start to give me introductions one by one. "
+             "Only reply with Instruction and Input."))
 
 user_msg = HumanMessage(content=f"{assistant_sys_msg.content}")
 user_msg = assistant_agent.step(user_msg)
@@ -184,7 +202,7 @@ while n < chat_turn_limit:
 # task_specifier_template = HumanMessagePromptTemplate.from_template(
 #     template=task_specifier_prompt
 # )
-# task_specify_agent = AiAgent(task_specifier_sys_msg, ChatOpenAI)#(temperature=1.0))
+# task_specify_agent = CAMELAgent(task_specifier_sys_msg, ChatOpenAI)#(temperature=1.0))
 # task_specifier_msg = task_specifier_template.format_messages(
 #     assistant_role_name=assistant_role_name,
 #     user_role_name=user_role_name,
