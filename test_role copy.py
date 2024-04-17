@@ -192,8 +192,8 @@ while n < chat_turn_limit:
         st.info(user_msg.content)
         st.text(f"AI Assistant ({assistant_role_name}):")
         st.success(assistant_msg.content)
-        if "<CAMEL_TASK_DONE>" in user_msg.content:
-            break
+    if "<CAMEL_TASK_DONE>" in user_msg.content:
+        break
 
 # task_specifier_sys_msg = SystemMessage(content="You can make a task more specific.")
 # task_specifier_prompt = """Here is a task that {assistant_role_name} will help {user_role_name} to complete: {task}.

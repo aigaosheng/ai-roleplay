@@ -1,6 +1,11 @@
 import streamlit as st
 from typing import List
 # from langchain.chat_models import ChatVertexAI
+from langchain_community.llms import Ollama
+
+model_name = "gemma:2b"
+model_name = "llama2"
+# ollama_openhermes = Ollama(model=model_name)
 
 from langchain.prompts.chat import (
     SystemMessagePromptTemplate,
@@ -13,7 +18,9 @@ from langchain.schema import (
     
     BaseMessage,
 )
-from langchain_community.llms import LlamaCpp
+# from langchain_community.llms import LlamaCpp
+
+ENABLE_UI = True
 
 model_name = "/home/gs/hf_home/models/models--google--gemma-2b-it/gemma-2b-it.gguf"
 model_name_embed = "/home/gs/hf_home/models/models--google--gemma-2b/gemma-2b.gguf"
@@ -21,10 +28,10 @@ model_name_embed = "/home/gs/hf_home/models/models--google--gemma-2b/gemma-2b.gg
 from gemma import GemmaLocal, GemmaChatLocal
 # from langchain_google_vertexai import GemmaChatLocalHF, GemmaLocalHF
 
-# ChatOpenAI = GemmaChatLocal(model_name = model_name, hf_access_token = "")
+gemma_inst = GemmaChatLocal(model_name = model_name, hf_access_token = "")
 
 
-class CAMELAgent:
+class AiAgent:
     def __init__(
         self,
         system_message: SystemMessage,
@@ -56,82 +63,117 @@ class CAMELAgent:
 
         return output_message
 
+assistant_role_name = "Mike" #"Individual Insurance Buyer"
+user_role_name = "David" #Insurance Sales"
+task = f"Train pitch skill of {user_role_name}, who is a junior insurance sales in AIA insurance company. He job is to explain the insurance products to the insurance buyers, comminicate with his insurance buyers and answer their questions and concerns. {assistant_role_name} is an individual insurance buyer or a customer of AIA insurance company. {assistant_role_name} is a father of one child and one daughter, and live with his wife. He loves his family and want to buy some insurance products for his family. In the training session, {assistant_role_name} seeks {user_role_name} to help him find suitable insurance products for his family. {assistant_role_name} can ask any questions on AIA insurance products. {user_role_name}, as an insurance sales, must answer {assistant_role_name}'s questions based on his expert knowledge"
+word_limit = 100  # word limit for task brainstorming
 
-# assistant_role_name = "Accountant"
-# user_role_name = "Entrepreneur"
-# task = "Preparing and filing tax returns."
-# word_limit = 50  # word limit for task brainstorming
+if ENABLE_UI:
+    st.title("Langchain-Gemma Agent")
+    st.sidebar.header("Input Settings")
 
-st.title("CAMEL-Langchain-VertexAI Agent")
-st.sidebar.header("Input Settings")
-
-assistant_role_name = st.sidebar.text_input("Assistant Role Name", "Accountant")
-user_role_name = st.sidebar.text_input("User Role Name", "Entrepreneur")
-task = st.sidebar.text_area("Task", "Preparing and filing tax returns.")
-word_limit = st.sidebar.number_input("Word Limit for Task Brainstorming", value=100)
+    assistant_role_name = st.sidebar.text_input("Assistant Role Name", f"{assistant_role_name}")
+    user_role_name = st.sidebar.text_input("User Role Name", f"{user_role_name}")
+    task = st.sidebar.text_area("Task", f"{task}")
+    word_limit = st.sidebar.number_input("Word Limit for Task Brainstorming", value=word_limit)
 
 
+# Step-1: Task define agent to generate task description
 task_specifier_sys_msg = SystemMessage(content="You can make a task more specific.")
+task_specify_agent = AiAgent(task_specifier_sys_msg, gemma_inst)
+
 task_specifier_prompt = (
-    """Here is a task that {assistant_role_name} will help {user_role_name} to complete: {task}.
+    """Here is a task that {assistant_role_name} will collaborate with {user_role_name} to complete the task: {task}.
+The training sessision starts with {assistant_role_name}, an insurance customer, to ask {user_role_name}, a insurance sales in AIA, a question about the insurance.
+
 Please make it more specific. Be creative and imaginative.
 Please reply with the specified task in {word_limit} words or less. Do not add anything else."""
 )
-task_specifier_template = HumanMessagePromptTemplate.from_template(template=task_specifier_prompt)
-task_specify_agent = CAMELAgent(task_specifier_sys_msg, GemmaChatLocal(model_name = model_name, hf_access_token = "", temperature=1.0, alow_reuse = True))
+task_specifier_template = HumanMessagePromptTemplate.from_template(template=task) #task_specifier_prompt)
 task_specifier_msg = task_specifier_template.format_messages(assistant_role_name=assistant_role_name,
                                                              user_role_name=user_role_name,
                                                              task=task, word_limit=word_limit)[0]
-specified_task_msg = task_specify_agent.step(task_specifier_msg)
+specified_task_msg = task_specifier_msg #task_specify_agent.step(task_specifier_msg)
 print(f"Specified task: {specified_task_msg.content}")
 specified_task = specified_task_msg.content
 
+#Step-2: Define user/assistant agent
 assistant_inception_prompt = (
-    """Never forget you are a {assistant_role_name} and I am a {user_role_name}. Never flip roles! Never instruct me!
+    """Never forget you are {assistant_role_name}, a customer, and I am {user_role_name}, an insurance sales. Never flip roles! Never instruct me!
 We share a common interest in collaborating to successfully complete a task.
 You must help me to complete the task.
 Here is the task: {task}. Never forget our task!
-I must instruct you based on your expertise and my needs to complete the task.
+I must answer you to address your question to complete the task.
 
-I must give you one instruction at a time.
-You must write a specific solution that appropriately completes the requested instruction.
-You must decline my instruction honestly if you cannot perform the instruction due to physical, moral, legal reasons or your capability and explain the reasons.
-Do not add anything else other than your solution to my instruction.
-You are never supposed to ask me any questions you only answer questions.
-You are never supposed to reply with a flake solution. Explain your solutions.
-Your solution must be declarative sentences and simple present tense.
+I must give you one answer at a time.
+You must write a specific question what you want to know about the AIA insurance product.
+You are supposed to ask me any questions.
+Your question must be declarative sentences and simple present tense.
 Unless I say the task is completed, you should always start with:
 
-Solution: <YOUR_SOLUTION>
+Solution: <YOUR_QUESTION>
 
-<YOUR_SOLUTION> should be specific and provide preferable implementations and examples for task-solving.
-Always end <YOUR_SOLUTION> with: Next request."""
+<YOUR_QUESTION> should be specific for task-solving.
+Always end <YOUR_QUESTION> with: Next request."""
 )
 
 user_inception_prompt = (
-    """Never forget you are a {user_role_name} and I am a {assistant_role_name}. Never flip roles! You will always instruct me.
+    """Never forget you are {user_role_name}, an insurance sales and I am {assistant_role_name}, a customer. Never flip roles! You will always answer me.
 We share a common interest in collaborating to successfully complete a task.
 I must help you to complete the task.
 Here is the task: {task}. Never forget our task!
-You must instruct me based on my expertise and your needs to complete the task ONLY in the following two ways:
+You must answer my question to complete the task ONLY in the following two ways:
 
-1. Instruct with a necessary input:
-Instruction: <YOUR_INSTRUCTION>
+1. Answer with a necessary input:
+Answer: <YOUR_ANSWER>
 Input: <YOUR_INPUT>
 
-2. Instruct without any input:
-Instruction: <YOUR_INSTRUCTION>
+2. Answer without any input:
+Answer: <YOUR_ANSWER>
 Input: None
 
-The "Instruction" describes a task or question. The paired "Input" provides further context or information for the requested "Instruction".
+The "Answer" describes a task or question. The paired "Input" provides further context or information for the requested "Answer".
 
-You must give me one instruction at a time.
-I must write a response that appropriately completes the requested instruction.
-I must decline your instruction honestly if I cannot perform the instruction due to physical, moral, legal reasons or my capability and explain the reasons.
-You should instruct me not ask me questions.
-Now you must start to instruct me using the two ways described above.
-Do not add anything else other than your instruction and the optional corresponding input!
-Keep giving me instructions and necessary inputs until you think the task is completed.
+You must give me one answer at a time.
+I must write a response that appropriately completes the requested question.
+Keep giving me answer and necessary inputs until you think the task is completed.
+When the task is completed, you must only reply with a single word <CAMEL_TASK_DONE>.
+Never say <CAMEL_TASK_DONE> unless my responses have solved your task."""
+)
+
+
+assistant_inception_prompt2 = (
+    """Never forget you are {assistant_role_name} and I am {user_role_name}. Never flip roles!
+
+We share a common interest in collaborating to successfully complete a task.
+You must help me to complete the task.
+Here is the task: {task}. Never forget our task!
+
+I must solve your problem or concern and complete the task.
+You must ask me one question about AIA insurance product.
+
+Unless I say the task is completed, you should always start with:
+
+Question: <YOUR_QUESTION>
+
+<YOUR_QUESTION> should be specific on the insurance product.
+Always end <YOUR_QUESTION> with: Next request."""
+
+)
+
+user_inception_prompt2 = (
+    """Never forget you are {user_role_name}, and I am {assistant_role_name}. Never flip roles! 
+
+We share a common interest in collaborating to successfully complete a task.
+I must help you to complete the task.
+Here is the task: {task}. Never forget our task!
+You must solve my question or concern about AIA insurance product.
+
+I must write a response that appropriately expresses question or concern on the product.
+
+I answer your question to complete the task ONLY in the following way:
+Answer: <MY_ANSWER>.
+
 When the task is completed, you must only reply with a single word <CAMEL_TASK_DONE>.
 Never say <CAMEL_TASK_DONE> unless my responses have solved your task."""
 )
@@ -151,8 +193,8 @@ def get_sys_msgs(assistant_role_name: str, user_role_name: str, task: str):
 
 # Create AI assistant agent and AI user agent from obtained system messages
 assistant_sys_msg, user_sys_msg = get_sys_msgs(assistant_role_name, user_role_name, specified_task)
-assistant_agent = CAMELAgent(assistant_sys_msg, GemmaChatLocal(model_name = model_name, hf_access_token = "",temperature=0.2, allow_reuse = True))
-user_agent = CAMELAgent(user_sys_msg,  GemmaChatLocal(model_name = model_name, hf_access_token = "",temperature=0.25, allow_reuse = True))
+assistant_agent = AiAgent(assistant_sys_msg, gemma_inst)
+user_agent = AiAgent(user_sys_msg, gemma_inst)
 
 # Reset agents
 assistant_agent.reset()
@@ -161,13 +203,14 @@ user_agent.reset()
 # Initialize chats
 assistant_msg = HumanMessage(
     content=(f"{user_sys_msg.content}. "
-             "Now start to give me introductions one by one. "
-             "Only reply with Instruction and Input."))
+             f"Now start to the training session. Hello, can you help me?"
+            ))
 
 user_msg = HumanMessage(content=f"{assistant_sys_msg.content}")
 user_msg = assistant_agent.step(user_msg)
 
-st.header("Conversation")
+if ENABLE_UI:
+    st.header("Conversation")
 
 chat_turn_limit, n = 5, 0
 while n < chat_turn_limit:
@@ -181,10 +224,11 @@ while n < chat_turn_limit:
     # print(f"AI Assistant ({assistant_role_name}):\n\n{assistant_msg.content}\n\n")
 
     # Display the conversation in chat format
-    st.text(f"AI User ({user_role_name}):")
-    st.info(user_msg.content)
-    st.text(f"AI Assistant ({assistant_role_name}):")
-    st.success(assistant_msg.content)
+    if ENABLE_UI:
+        st.text(f"AI User ({user_role_name}):")
+        st.info(user_msg.content)
+        st.text(f"AI Assistant ({assistant_role_name}):")
+        st.success(assistant_msg.content)
     if "<CAMEL_TASK_DONE>" in user_msg.content:
         break
 
@@ -195,7 +239,7 @@ while n < chat_turn_limit:
 # task_specifier_template = HumanMessagePromptTemplate.from_template(
 #     template=task_specifier_prompt
 # )
-# task_specify_agent = CAMELAgent(task_specifier_sys_msg, ChatOpenAI)#(temperature=1.0))
+# task_specify_agent = AiAgent(task_specifier_sys_msg, ChatOpenAI)#(temperature=1.0))
 # task_specifier_msg = task_specifier_template.format_messages(
 #     assistant_role_name=assistant_role_name,
 #     user_role_name=user_role_name,
