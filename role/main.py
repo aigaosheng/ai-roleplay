@@ -59,6 +59,8 @@ if st.session_state.get("current_course") != course_selection or st.session_stat
     st.session_state["current_user"] = human_name
     st.session_state["messages"] = [AIMessage(content="Welcome to training course")]
 
+    st.session_state["evaluate"] = []
+
 st.sidebar.markdown(f"""**Course Now**\n\n
     """)
 st.sidebar.write(course_cfg.course_available[course_selection]["desc"])
@@ -108,31 +110,48 @@ for msg in st.session_state["messages"]:
         st.chat_message("assistant").write(msg.content)
 
 if prompt := st.chat_input():
-    st.chat_message("user").write(prompt)
+    if prompt.lower() != "score":
+        st.chat_message("user").write(prompt)
 
-    with st.chat_message("assistant"):
-        stream_handler = StreamHandler(st.empty())
-        # model = ChatOpenAI(streaming=True, callbacks=[stream_handler], model="gpt-4")
-        model = load_ollama(callbacks=[stream_handler], model=model_selection, temperature=0, stop = stop_list)#, streaming=True)
+        with st.chat_message("assistant"):
+            stream_handler = StreamHandler(st.empty())
+            # model = ChatOpenAI(streaming=True, callbacks=[stream_handler], model="gpt-4")
+            model = load_ollama(callbacks=[stream_handler], model=model_selection, temperature=0, stop = stop_list)#, streaming=True)
 
-        
-        
-        chain = LLMChain(prompt=prompt_template, llm=model)
-        print(f"*** prompt_template = {prompt_template}")
+                
+            chain = LLMChain(prompt=prompt_template, llm=model)
+            print(f"*** prompt_template = {prompt_template}")
 
-        response = chain({"input":prompt, "chat_history":st.session_state.messages[-20:]}, include_run_info=True)
-        print(f"*** {st.session_state.messages}")
-        st.session_state.messages.append(HumanMessage(content=prompt))
-        st.session_state.messages.append(AIMessage(content=response[chain.output_key]))
-        run_id = response["__run"].run_id
+            response = chain({"input":prompt, "chat_history":st.session_state.messages[-20:]}, include_run_info=True)
+            print(f"*** {st.session_state.messages}")
+            st.session_state.messages.append(HumanMessage(content=prompt))
+            st.session_state.messages.append(AIMessage(content=response[chain.output_key]))
+            run_id = response["__run"].run_id
 
-        col_blank, col_text, col1, col2 = st.columns([10, 2,1,1])
-        with col_text:
-            st.text("Feedback:")
+            col_blank, col_text, col1, col2 = st.columns([10, 2,1,1])
+            with col_text:
+                st.text("Feedback:")
 
-        with col1:
-            st.button("👍")#, on_click=send_feedback, args=(run_id, 1))
+            with col1:
+                st.button("👍")#, on_click=send_feedback, args=(run_id, 1))
 
-        with col2:
-            st.button("👎")#, on_click=send_feedback, args=(run_id, 0))
+            with col2:
+                st.button("👎")#, on_click=send_feedback, args=(run_id, 0))
+    else:
+        model_eval = load_ollama(model="wizardlm2", temperature=0, stop = model_cfg.param_cfg["wizardlm2"]["stop"])
+
+        docs = []
+        for msg in st.session_state["messages"]:
+            if isinstance(msg, HumanMessage):
+                docs.append("user:"+msg.content)
+            else:
+                docs.append("assistant:"+msg.content)
+        docs = "\n".join(docs)
+        print(f"*** docs = {docs}")
+
+        chain_eval = LLMChain(prompt=get_prompt.load_prompt_eval(docs), llm=model_eval)
+
+        response_eval = chain_eval({"input":"", "chat_history":[]}, include_run_info=True)
+
+        st.write(response_eval[chain_eval.output_key])
 

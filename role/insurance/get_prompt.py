@@ -1,4 +1,4 @@
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate, PromptTemplate
 from langchain.schema import SystemMessage
 from langchain.memory import ConversationBufferMemory
 
@@ -77,6 +77,33 @@ def load_prompt_user_agent(ai_role, human_role = None, company = None, human_nam
 	{content}
 
 	Now remember short response with 1-3 sentences.""".format(content=content, ai_role=ai_role, human_role=human_role,company=company, human_name=human_name)
+	
+
+    prompt_template = ChatPromptTemplate(messages = [
+		SystemMessage(content=template), 
+		MessagesPlaceholder(variable_name="chat_history"), 
+		HumanMessagePromptTemplate.from_template("{input}")
+		]
+    )
+    
+    return prompt_template
+
+def load_prompt_eval(content):
+	
+    template = """I want you to act as a teacher. Your task is to evaluate the quality between the AI assistant and user, and score the quality in terms of scale 1 to 5. 1 is lowest and 5 is highest. 
+    
+    The conversation is in the following document.
+
+    -------------------
+
+	{content}
+
+    ---------------------
+
+    The ouitput format is: 
+    Training score: 
+
+    """.format(content=content)
 	
 
     prompt_template = ChatPromptTemplate(messages = [
