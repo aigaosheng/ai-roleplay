@@ -63,11 +63,14 @@ st.sidebar.markdown(f"""**Course Now**\n\n
     """)
 st.sidebar.write(course_cfg.course_available[course_selection]["desc"])
 #
-ai_persona = "an insurance salesman"
-human_persona = f""""I am {human_name}""" #, a father  of 2 children, loving adventure."""
-company = "AIA insurance"
+ai_persona = course_cfg.course_available[course_selection]["ai_persona"] #"an insurance salesman"
+human_persona = course_cfg.course_available[course_selection]["human_persona"].format(human_name) #f""""I am {human_name}""" #, a father  of 2 children, loving adventure."""
+company = course_cfg.course_available[course_selection]["company"] #"AIA insurance"
 
-prompt_template = get_prompt.load_prompt(ai_persona, human_role = human_persona, company = company, content=None)
+if "_buyer_" in course_selection:
+    prompt_template = get_prompt.load_prompt_user_agent(ai_persona, human_role = human_persona, company = company, human_name=human_name, content=None)
+else:
+    prompt_template = get_prompt.load_prompt(ai_persona, human_role = human_persona, company = company, human_name=human_name, content=None)
 
 from langchain.chains import LLMChain
 
