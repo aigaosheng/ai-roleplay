@@ -45,16 +45,31 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMess
 from langchain.schema import SystemMessage
 from langchain.memory import ConversationBufferMemory
 from insurance import get_prompt
-from config import model_cfg
+from config import model_cfg, course_cfg
 
+#Set configuration
+model_selection = st.sidebar.selectbox("Select LLM", list(model_cfg.model_available))
+course_selection = st.sidebar.selectbox("Select training course", list(course_cfg.course_available.keys()))
+human_name = st.sidebar.text_input("Set user name", "Mike")
+
+# Clear chat session if dropdown option or radio button changes
+if st.session_state.get("current_course") != course_selection or st.session_state.get("current_model") != model_selection or st.session_state.get("current_user") != human_name:
+    st.session_state["current_course"] = course_selection
+    st.session_state["current_model"] = model_selection
+    st.session_state["current_user"] = human_name
+    st.session_state["messages"] = [AIMessage(content="Welcome to training course")]
+
+st.sidebar.markdown(f"""**Course Now**\n\n
+    """)
+st.sidebar.write(course_cfg.course_available[course_selection]["desc"])
+#
 ai_persona = "an insurance salesman"
-human_persona = """"I am Mike, a father  of 2 children, loving adventure."""
+human_persona = f""""I am {human_name}""" #, a father  of 2 children, loving adventure."""
 company = "AIA insurance"
 
 prompt_template = get_prompt.load_prompt(ai_persona, human_role = human_persona, company = company, content=None)
 
 from langchain.chains import LLMChain
-
 
 def send_feedback(run_id, score):
     if client:
@@ -69,14 +84,14 @@ def load_ollama(**kwargs):
     callbacks = kwargs.get("callbacks", [])
     stop = kwargs.get("stop", [])
 
-    model = Ollama(callbacks=callbacks, model=model_name, temperature=temperature, stop=stop)#, streaming=True)
+    model = Ollama(callbacks=callbacks, model=model_selection, temperature=temperature, stop=stop)#, streaming=True)
 
     return model
 
-model_name = "llama3:instruct" #"gemma:2b"#"llama2"
+# model_name = "llama3:instruct" #"gemma:2b"#"llama2"
 
 try:
-    stop_list = model_cfg.param_cfg[model_name.split(":")[0]]["stop"]
+    stop_list = model_cfg.param_cfg[model_selection.split(":")[0]]["stop"]
 except:
     stop_list = None
 
@@ -95,7 +110,7 @@ if prompt := st.chat_input():
     with st.chat_message("assistant"):
         stream_handler = StreamHandler(st.empty())
         # model = ChatOpenAI(streaming=True, callbacks=[stream_handler], model="gpt-4")
-        model = load_ollama(callbacks=[stream_handler], model=model_name, temperature=0, stop = stop_list)#, streaming=True)
+        model = load_ollama(callbacks=[stream_handler], model=model_selection, temperature=0, stop = stop_list)#, streaming=True)
 
         
         

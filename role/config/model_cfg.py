@@ -1,6 +1,8 @@
 """
 Model param configure
 """
+import ollama
+
 param_cfg = {
     "gemma": {
         "template": "<start_of_turn>user \
@@ -60,3 +62,6 @@ param_cfg = {
         ]    
     },
 }
+
+#Get available Ollama models
+model_available = list(map(lambda x: x["name"], ollama.list()["models"]))
