@@ -5,6 +5,8 @@ from langchain_community.llms import Ollama
 from langchain.schema import HumanMessage, AIMessage
 import streamlit as st
 
+import os
+
 try:
     from langsmith import Client
     client = Client()
@@ -108,13 +110,13 @@ if prompt := st.chat_input():
         st.session_state.messages.append(AIMessage(content=response[chain.output_key]))
         run_id = response["__run"].run_id
 
-        # col_blank, col_text, col1, col2 = st.columns([10, 2,1,1])
-        # with col_text:
-        #     st.text("Feedback:")
+        col_blank, col_text, col1, col2 = st.columns([10, 2,1,1])
+        with col_text:
+            st.text("Feedback:")
 
-        # with col1:
-        #     st.button("👍")#, on_click=send_feedback, args=(run_id, 1))
+        with col1:
+            st.button("👍")#, on_click=send_feedback, args=(run_id, 1))
 
-        # with col2:
-        #     st.button("👎")#, on_click=send_feedback, args=(run_id, 0))
+        with col2:
+            st.button("👎")#, on_click=send_feedback, args=(run_id, 0))
 
